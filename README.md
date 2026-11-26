@@ -1,15 +1,30 @@
-# PulseFlow System Identity — Android build
+# PulseFlow
 
-This repository contains the GitHub Actions workflow for packaging the hosted PulseFlow web app as an Android APK with Capacitor.
+PulseFlow is a responsive Next.js project-planning workspace. The current committed version is an MVP: projects and tasks are stored in browser localStorage, and the AI planner uses a server-side OpenAI API route when configured. The included Supabase SQL is a starting schema only; authentication and cloud CRUD/synchronization are not yet wired into the UI. Do not use this build as a production multi-user system until those parts are completed and tested.
 
-## Build an APK
+## Stack
+- Next.js 15 App Router, React 19, TypeScript
+- OpenAI API called server-side only
+- Optional Supabase schema (migration under supabase/migrations)
+- Vercel deployment
 
-1. Deploy the PulseFlow Next.js application to an HTTPS host.
-2. Open **Actions → Build PulseFlow Android APK → Run workflow**.
-3. Enter the deployed HTTPS URL in the `server_url` input.
-4. Wait for the workflow to finish.
-5. Download **pulseflow-android-debug** from the run's Artifacts section.
+## Local development
+1. Install Node.js 20.9+.
+2. Run `npm install`.
+3. Copy `.env.example` to `.env.local`.
+4. Add `OPENAI_API_KEY` if you want AI planning; the dashboard works without it.
+5. Run `npm run dev` and open http://localhost:3000.
+6. Before deployment, run `npm run typecheck`, `npm run lint`, and `npm run build`.
 
-The APK is a WebView wrapper around the hosted app. The app's server, Supabase Auth/database, and OpenAI API must already be configured. Do not put Supabase service-role keys or OpenAI secrets in the Android app.
+## Deploy to Vercel
+1. Import this GitHub repository into Vercel.
+2. Framework preset: Next.js; build command: `npm run build`; output directory: leave default.
+3. Add `OPENAI_API_KEY` and optionally `OPENAI_MODEL` in Project Settings → Environment Variables. Never put secret keys in NEXT_PUBLIC variables.
+4. Deploy. Vercel creates a public HTTPS URL and deploys future pushes to the connected branch automatically.
+5. Check `/api/health` after deployment.
 
-A successful Android packaging build does not by itself prove multi-device synchronization; that requires server-side persistence and authentication in the deployed PulseFlow app.
+## Supabase status
+The SQL migration is a schema starter with row-level security. Apply it only to a new/test Supabase project after review. The current browser dashboard does not yet use Supabase Auth or cloud persistence, so data does not sync between devices yet.
+
+## Android
+The Android wrapper workflow is separate and requires a deployed HTTPS URL. A wrapper APK does not replace the hosted Next.js server.
