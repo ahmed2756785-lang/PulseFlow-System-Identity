@@ -1,0 +1,90 @@
+name: Build PulseFlow Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: "Deployed PulseFlow HTTPS URL (for example https://pulseflow.example.com)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate server URL
+        env:
+          SERVER_URL: ${{ inputs.server_url }}
+        run: |
+          node -e "const u=new URL(process.env.SERVER_URL); if (u.protocol !== 'https:') throw new Error('server_url must use HTTPS')"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create Capacitor wrapper
+        env:
+          SERVER_URL: ${{ inputs.server_url }}
+        run: |
+          mkdir -p public
+          cat > package.json <<'JSON'
+          {
+            "name": "pulseflow-android-shell",
+            "version": "1.0.0",
+            "private": true,
+            "scripts": {
+              "android:add": "cap add android",
+              "android:sync": "cap sync android"
+            },
+            "dependencies": {
+              "@capacitor/android": "^7.4.3",
+              "@capacitor/core": "^7.4.3"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "^7.4.3"
+            }
+          }
+          JSON
+          cat > capacitor.config.json <<JSON
+          {
+            "appId": "com.pulseflow.app",
+            "appName": "PulseFlow",
+            "webDir": "public",
+            "server": {
+              "url": "$SERVER_URL",
+              "cleartext": false,
+              "allowNavigation": ["$(node -p "new URL(process.env.SERVER_URL).hostname")"]
+            }
+          }
+          JSON
+          cat > public/index.html <<'HTML'
+          <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><p>Loading PulseFlow…</p></body></html>
+          HTML
+          npm install
+          npx cap add android
+          npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulseflow-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
